@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { publicClient } from "@/lib/supabase-server";
 import { StatusBadge } from "@/components/StatusBadge";
+import { RtcMap } from "@/components/RtcMap";
 
 export const revalidate = 60;
 
@@ -10,7 +11,7 @@ export default async function RecordPage() {
   const supabase = publicClient();
   const { data: barriers } = await supabase
     .from("access_locations")
-    .select("id, label, status, summary, updated_at, access_parties(name), access_photos(src, alt, sort)")
+    .select("id, label, status, summary, updated_at, lat, lon, x, y, access_parties(name), access_photos(src, alt, sort)")
     .eq("published", true)
     .order("updated_at", { ascending: false });
 
@@ -22,9 +23,18 @@ export default async function RecordPage() {
       <h1 className="font-display text-4xl font-bold text-pine">The record</h1>
       <p className="mt-3 max-w-prose text-lg">
         Every barrier the Agents of Change team has documented at Reston Town
-        Center, and every step taken since. The illustrated map is coming
-        here; the record itself is below.
+        Center, and every step taken since. Pins on the map and entries in the
+        list are the same record, two ways.
       </p>
+
+      {barriers && barriers.length > 0 && (
+        <RtcMap
+          barriers={barriers.map((b) => ({
+            id: b.id, label: b.label, status: b.status,
+            lat: b.lat, lon: b.lon, x: b.x, y: b.y,
+          }))}
+        />
+      )}
 
       {!barriers || barriers.length === 0 ? (
         <p className="mt-10 max-w-prose rounded-xl border border-moss/30 bg-paper p-6 text-moss">
