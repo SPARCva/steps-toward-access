@@ -163,7 +163,7 @@ Thank you for your time,
   return (
     <main id="main" className="mx-auto max-w-5xl px-5 py-12">
       <p className="mb-6 print:hidden">
-        <Link href="/" className="text-sm font-semibold text-fern underline underline-offset-4">← Steps Toward Access</Link>
+        <Link href="/" className="text-sm font-semibold text-fern underline underline-offset-4">← Accessibility in Real Time</Link>
       </p>
 
       <div className="print:hidden">

@@ -1,4 +1,4 @@
-# Steps Toward Access 2.0
+# Accessibility in Real Time
 
 SPARC's Agents of Change accessibility advocacy app. Public record of
 barriers at Reston Town Center + the steps taken to call for change, plus a

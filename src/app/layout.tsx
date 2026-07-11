@@ -24,8 +24,8 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Steps Toward Access — SPARC",
-    template: "%s · Steps Toward Access",
+    default: "Accessibility in Real Time — SPARC",
+    template: "%s · Accessibility in Real Time",
   },
   description:
     "A public record of accessibility barriers at Reston Town Center and the steps SPARC's Agents of Change have taken to call for change.",

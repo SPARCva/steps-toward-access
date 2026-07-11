@@ -6,7 +6,7 @@ export default function Home() {
       <header className="border-b border-moss/30 bg-paper">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
           <p className="font-display text-lg font-semibold text-pine">
-            Steps Toward Access
+            Accessibility in Real Time
             <span className="ml-2 font-body text-sm font-normal text-moss">
               a SPARC Agents of Change project
             </span>

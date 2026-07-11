@@ -32,7 +32,7 @@ export default function ConsolePage() {
         <h1 className="font-display text-3xl font-bold text-pine">Not on the team roster</h1>
         <p className="mt-4 max-w-prose">
           You&rsquo;re signed in as <strong>{session.user.email}</strong>, but this
-          address isn&rsquo;t on the Steps Toward Access staff list. If you&rsquo;re part
+          address isn&rsquo;t on the Accessibility in Real Time staff list. If you&rsquo;re part
           of the Agents of Change team, ask Erica to add you.
         </p>
         <button
@@ -174,7 +174,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <main id="main" className="mx-auto max-w-5xl px-5 py-12">
       <p className="mb-8">
         <Link href="/" className="text-sm font-semibold text-fern underline underline-offset-4">
-          ← Steps Toward Access
+          ← Accessibility in Real Time
         </Link>
       </p>
       {children}

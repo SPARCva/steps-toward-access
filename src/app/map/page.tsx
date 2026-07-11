@@ -18,7 +18,7 @@ export default async function RecordPage() {
   return (
     <main id="main" className="mx-auto max-w-5xl px-5 py-12">
       <p className="mb-6">
-        <Link href="/" className="text-sm font-semibold text-fern underline underline-offset-4">← Steps Toward Access</Link>
+        <Link href="/" className="text-sm font-semibold text-fern underline underline-offset-4">← Accessibility in Real Time</Link>
       </p>
       <h1 className="font-display text-4xl font-bold text-pine">The record</h1>
       <p className="mt-3 max-w-prose text-lg">
