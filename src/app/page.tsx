@@ -14,6 +14,7 @@ export default function Home() {
           <nav aria-label="Primary">
             <ul className="flex gap-6 text-sm font-semibold">
               <li><Link href="/map" className="text-pine underline-offset-4 hover:underline">The record</Link></li>
+              <li><Link href="/community" className="text-pine underline-offset-4 hover:underline">Community reports</Link></li>
               <li><Link href="/report" className="text-pine underline-offset-4 hover:underline">Report a barrier</Link></li>
               <li><Link href="/console" className="text-moss underline-offset-4 hover:underline">Team console</Link></li>
             </ul>

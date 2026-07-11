@@ -42,7 +42,7 @@ export default function RecordPage() {
       ) : barriers.length === 0 ? (
         <p className="mt-10 max-w-prose rounded-xl border border-moss/30 bg-paper p-6 text-moss">
           The first entries are being prepared by the team. Check back soon —
-          or <Link href="/report" className="font-semibold text-fern underline underline-offset-4">report a barrier in your own community</Link>.
+          see <Link href="/community" className="font-semibold text-fern underline underline-offset-4">community reports</Link>, or <Link href="/report" className="font-semibold text-fern underline underline-offset-4">report a barrier in your own community</Link>.
         </p>
       ) : (
         <>

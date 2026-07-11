@@ -375,6 +375,10 @@ Thank you for your time,
                 <label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} /></label>
               </div>
               {fileErr && <p role="alert" className="mt-3 rounded-lg bg-s_documented/10 p-3 text-sm font-semibold text-s_documented">{fileErr}</p>}
+              <p className="mt-3 text-sm text-moss">
+                Your report may appear on our public community board — your
+                name and email are never shown, only the barrier itself.
+              </p>
               <button type="button" disabled={!ready || filing} onClick={fileWithSparc}
                 className="mt-4 rounded-lg bg-pine px-6 py-3 font-semibold text-white hover:bg-fern disabled:opacity-50">
                 {filing ? "Sending…" : "Send it to the team"}
