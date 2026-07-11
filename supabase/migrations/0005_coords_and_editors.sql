@@ -12,10 +12,11 @@ alter table public.access_locations
   add column if not exists legal_signoff_by   text,
   add column if not exists legal_signoff_at   timestamptz;
 
--- publishers: Kat, Debi, Erica, grants
+-- publishers: Kat, Debi, Andrew, Erica, grants
 insert into public.access_staff (email, role, display_name) values
-  ('kat@sparcsolutions.org',  'editor', 'Kat Rader'),
-  ('debi@sparcsolutions.org', 'editor', 'Debi Alexander')
+  ('kat@sparcsolutions.org',    'editor', 'Kat Rader'),
+  ('debi@sparcsolutions.org',   'editor', 'Debi Alexander'),
+  ('andrew@sparcsolutions.org', 'editor', 'Andrew O''Dell')
 on conflict (email) do update set role = excluded.role;
 
 -- publish guard: editor-only + audit log. NO checklist conditions.
