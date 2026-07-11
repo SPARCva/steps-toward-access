@@ -1,18 +1,26 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { toPercent } from "@/lib/geo";
+import { fromPercent, RTC_BOX } from "@/lib/geo";
 import HOVER from "@/data/hover_shapes.json";
+import "maplibre-gl/dist/maplibre-gl.css";
+import type { Map as MLMap, Marker as MLMarker } from "maplibre-gl";
 
 /**
- * The Town Center map. Rules:
- *  - No dots for places. Hovering (or keyboard-focusing) any named/addressed
- *    building shows its name/street number; clicking it starts a barrier
- *    report there.
- *  - The ONLY markers are barriers: numbered navy pins for documented
- *    barriers, red dots for community reports.
- *  - The whole area loads in view; + / − zoom in when needed.
+ * The Town Center map — now a real interactive vector map (MapLibre GL + free
+ * OpenFreeMap tiles). Street names are rendered by the map engine, so they fit
+ * the streets, follow curves, and reveal smaller streets as you zoom. Rules are
+ * unchanged from the old illustrated version:
+ *  - Clicking a street / building / spot starts a barrier report there
+ *    (calls onPlacePick with the place name + real lat/lon).
+ *  - The ONLY markers are barriers: navy numbered pins for documented barriers,
+ *    red dots for community reports.
+ *  - A keyboard/screen-reader place picker gives non-mouse users the same
+ *    "report at a named place" path the old focusable buildings provided.
+ *
+ * Props, exports, and types are identical to the previous component, so page.tsx
+ * needs no changes.
  */
 
 export type MapBarrier = {
@@ -22,149 +30,226 @@ export type MapBarrier = {
 export type MapReport = { id: string; snippet: string; lat: number | null; lon: number | null };
 export type MapPlace = { name: string; addr: string | null; lat: number; lon: number };
 
-type Shape = { label: string; d?: string; circle?: [number, number, number]; cx: number; cy: number; lat: number; lon: number };
-const SHAPES = (HOVER as { vw: number; vh: number; shapes: Shape[] });
+type Shape = { label: string; cx: number; cy: number; lat: number; lon: number };
+const PLACES = (HOVER as { shapes: Shape[] }).shapes;
 
 const STATUS_TEXT: Record<string, string> = {
   documented: "Documented", contacted: "Letter sent",
   awaiting: "Awaiting response", resolved: "Resolved",
 };
 
+const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const NAVY = "#002B50";
+const RED = "#C62828";
+
+/** best geographic coordinate for a barrier/report: real lat/lon, else the
+ *  legacy pixel position converted back through the basemap projection. */
+function lngLatOf(o: { lat: number | null; lon: number | null; x?: number | null; y?: number | null }): [number, number] | null {
+  if (o.lat != null && o.lon != null) return [o.lon, o.lat];
+  if (o.x != null && o.y != null) { const g = fromPercent(o.x, o.y); return [g.lon, g.lat]; }
+  return null;
+}
+
 export function RtcMap({ barriers, reports = [], onPlacePick }: {
   barriers: MapBarrier[]; reports?: MapReport[];
   onPlacePick?: (p: MapPlace) => void;
 }) {
   const router = useRouter();
-  const [zoom, setZoom] = useState(1);
-  const [hover, setHover] = useState<Shape | null>(null);
-  const scroller = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MLMap | null>(null);
+  const markersRef = useRef<MLMarker[]>([]);
+  const readyRef = useRef(false);
+  // keep latest props/handlers reachable from map events without rebuilding the map
+  const dataRef = useRef({ barriers, reports, onPlacePick });
+  dataRef.current = { barriers, reports, onPlacePick };
 
-  const pins = barriers
-    .map((b, i) => {
-      const pos = b.lat != null && b.lon != null ? toPercent(b.lat, b.lon)
-        : b.x != null && b.y != null ? { x: b.x, y: b.y } : null;
-      return pos ? { ...b, n: i + 1, ...pos } : null;
-    })
-    .filter((p): p is NonNullable<typeof p> => p !== null && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100);
+  // build the map once
+  useEffect(() => {
+    if (mapRef.current || !containerRef.current) return;
+    let cancelled = false;
 
-  const dots = reports
-    .filter((r): r is MapReport & { lat: number; lon: number } => r.lat != null && r.lon != null)
-    .map((r) => ({ ...r, ...toPercent(r.lat, r.lon) }))
-    .filter((r) => r.x >= 0 && r.x <= 100 && r.y >= 0 && r.y <= 100);
+    (async () => {
+      const maplibregl = await import("maplibre-gl");
+      if (cancelled || !containerRef.current) return;
 
-  function pick(s: Shape) {
-    const [name, addr] = s.label.includes(" · ") ? s.label.split(" · ") : [s.label, null];
-    onPlacePick?.({ name, addr, lat: s.lat, lon: s.lon });
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: STYLE_URL,
+        bounds: [[RTC_BOX.west, RTC_BOX.south], [RTC_BOX.east, RTC_BOX.north]],
+        fitBoundsOptions: { padding: 12 },
+        maxBounds: [[RTC_BOX.west - 0.006, RTC_BOX.south - 0.006], [RTC_BOX.east + 0.006, RTC_BOX.north + 0.006]],
+        minZoom: 13, maxZoom: 19,
+      });
+      mapRef.current = map;
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-left");
+
+      map.on("load", () => {
+        warmPalette(map);
+        readyRef.current = true;
+        drawMarkers(maplibregl, map);
+      });
+
+      // click a street / building / spot -> start a report there
+      map.on("click", (e) => {
+        const { name, addr } = describe(map, e.point);
+        dataRef.current.onPlacePick?.({ name, addr, lat: e.lngLat.lat, lon: e.lngLat.lng });
+      });
+      map.on("mousemove", (e) => {
+        const hit = describe(map, e.point).name !== "Selected spot";
+        map.getCanvas().style.cursor = hit ? "pointer" : "crosshair";
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      mapRef.current?.remove();
+      mapRef.current = null;
+      readyRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // redraw markers whenever barriers/reports change
+  useEffect(() => {
+    if (!readyRef.current || !mapRef.current) return;
+    (async () => {
+      const maplibregl = await import("maplibre-gl");
+      if (mapRef.current) drawMarkers(maplibregl, mapRef.current);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barriers, reports]);
+
+  function drawMarkers(maplibregl: typeof import("maplibre-gl"), map: MLMap) {
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+    const { barriers, reports } = dataRef.current;
+
+    // community reports — red dots
+    reports.forEach((r) => {
+      const ll = lngLatOf(r);
+      if (!ll) return;
+      const el = document.createElement("button");
+      el.type = "button";
+      el.setAttribute("aria-label", `Reported barrier: ${r.snippet}. Jump to it on the board.`);
+      el.style.cssText =
+        `width:16px;height:16px;border-radius:50%;background:${RED};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;padding:0`;
+      el.title = r.snippet;
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const node = document.getElementById(`report-${r.id}`);
+        node?.scrollIntoView({ behavior: "smooth", block: "center" });
+        (node as HTMLElement | null)?.focus();
+      });
+      markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map));
+    });
+
+    // documented barriers — navy numbered pins
+    barriers.forEach((b, i) => {
+      const ll = lngLatOf(b);
+      if (!ll) return;
+      const el = document.createElement("button");
+      el.type = "button";
+      el.setAttribute("aria-label", `Barrier ${i + 1}: ${b.label} — ${STATUS_TEXT[b.status] ?? b.status}. Open the paper trail.`);
+      el.textContent = String(i + 1);
+      el.style.cssText =
+        `display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;` +
+        `background:${NAVY};color:#fff;font-weight:700;font-size:15px;border:2px solid #fff;` +
+        `box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;padding:0`;
+      el.title = b.label;
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        router.push(`/barrier?id=${b.id}`);
+      });
+      markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map));
+    });
   }
 
-  function setZoomKeepCenter(next: number) {
-    const el = scroller.current;
-    if (!el) return setZoom(next);
-    const cx = (el.scrollLeft + el.clientWidth / 2) / (el.scrollWidth || 1);
-    const cy = (el.scrollTop + el.clientHeight / 2) / (el.scrollHeight || 1);
-    setZoom(next);
-    requestAnimationFrame(() => {
-      el.scrollLeft = cx * el.scrollWidth - el.clientWidth / 2;
-      el.scrollTop = cy * el.scrollHeight - el.clientHeight / 2;
-    });
+  // keyboard / screen-reader parity: choose a named place to report there
+  function pickPlace(idx: number) {
+    const s = PLACES[idx];
+    if (!s) return;
+    const [name, addr] = s.label.includes(" · ") ? s.label.split(" · ") : [s.label, null];
+    dataRef.current.onPlacePick?.({ name, addr: addr ?? null, lat: s.lat, lon: s.lon });
+    document.getElementById("add")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <section aria-label="Map of Reston Town Center barriers" className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-moss">
-          Hover any building for its name or address — click it to report a
-          barrier there. Navy pins: documented barriers. Red dots: community
+          Tap any street, building, or spot to report a barrier there — zoom in for
+          more street names. Navy pins: documented barriers. Red dots: community
           reports. <a href="#add" className="font-semibold text-fern underline underline-offset-4">Skip past the map</a>
         </p>
-        <div className="flex gap-2" role="group" aria-label="Map zoom">
-          <button type="button" onClick={() => setZoomKeepCenter(Math.max(1, +(zoom - 0.5).toFixed(1)))} disabled={zoom <= 1} aria-label="Zoom out"
-            className="h-11 w-11 rounded-lg border-2 border-fern bg-paper text-xl font-bold text-fern hover:bg-fern/10 disabled:opacity-40">−</button>
-          <button type="button" onClick={() => setZoomKeepCenter(Math.min(4, +(zoom + 0.5).toFixed(1)))} disabled={zoom >= 4} aria-label="Zoom in"
-            className="h-11 w-11 rounded-lg border-2 border-fern bg-paper text-xl font-bold text-fern hover:bg-fern/10 disabled:opacity-40">+</button>
-        </div>
+        {onPlacePick && (
+          <label className="text-sm text-moss">
+            <span className="sr-only">Report at a specific place</span>
+            <select
+              defaultValue=""
+              aria-label="Report a barrier at a specific place"
+              onChange={(e) => { const v = e.target.value; if (v !== "") { pickPlace(Number(v)); e.currentTarget.value = ""; } }}
+              className="rounded-lg border-2 border-fern bg-paper px-3 py-2 text-sm text-pine"
+            >
+              <option value="">Report at a place…</option>
+              {PLACES.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
+            </select>
+          </label>
+        )}
       </div>
 
       <div
-        ref={scroller}
-        tabIndex={0}
-        role="region"
-        aria-label={`Illustrated map, zoom ${zoom} of 4. The full Town Center is shown; zoom in for detail. Barrier markers and building hover targets follow.`}
-        onKeyDown={(e) => {
-          if (e.key === "+" || e.key === "=") { e.preventDefault(); setZoomKeepCenter(Math.min(4, zoom + 0.5)); }
-          if (e.key === "-") { e.preventDefault(); setZoomKeepCenter(Math.max(1, zoom - 0.5)); }
-        }}
-        className={`mt-3 rounded-xl border border-moss/30 bg-[#eef2ed] ${zoom > 1 ? "max-h-[78vh] overflow-auto" : "overflow-hidden"}`}
-      >
-        <div className="relative" style={{ width: `${zoom * 100}%` }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/ART/rtc-basemap.svg" alt="" className="block w-full select-none" draggable={false} />
-
-          {/* invisible hover/click layer: real building footprints */}
-          {onPlacePick && (
-            <svg viewBox={`0 0 ${SHAPES.vw} ${SHAPES.vh}`} className="absolute inset-0 h-full w-full" aria-label="Buildings and businesses — activate one to report a barrier there" role="group">
-              {SHAPES.shapes.map((s, i) =>
-                s.d ? (
-                  <path key={i} d={s.d} fill="transparent" stroke="none" tabIndex={0} role="button"
-                    aria-label={`Report a barrier at ${s.label}`}
-                    className="cursor-pointer outline-none hover:fill-fern/20 focus-visible:fill-fern/25 focus-visible:stroke-fern focus-visible:stroke-[3px]"
-                    onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(null)}
-                    onFocus={() => setHover(s)} onBlur={() => setHover(null)}
-                    onClick={() => pick(s)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(s); } }} />
-                ) : (
-                  <circle key={i} cx={s.circle![0]} cy={s.circle![1]} r={s.circle![2]} fill="transparent" tabIndex={0} role="button"
-                    aria-label={`Report a barrier at ${s.label}`}
-                    className="cursor-pointer outline-none hover:fill-fern/25 focus-visible:fill-fern/30 focus-visible:stroke-fern focus-visible:stroke-[3px]"
-                    onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(null)}
-                    onFocus={() => setHover(s)} onBlur={() => setHover(null)}
-                    onClick={() => pick(s)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(s); } }} />
-                )
-              )}
-            </svg>
-          )}
-
-          {/* the hover label */}
-          {hover && (
-            <div aria-hidden="true"
-              style={{ left: `${(hover.cx / SHAPES.vw) * 100}%`, top: `${(hover.cy / SHAPES.vh) * 100}%` }}
-              className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-[130%] whitespace-nowrap rounded-md bg-pine px-2.5 py-1 font-body text-xs font-semibold text-white shadow">
-              {hover.label}
-            </div>
-          )}
-
-          {/* RED DOTS: community-reported barriers */}
-          {dots.map((r) => (
-            <button key={r.id} type="button"
-              onClick={() => {
-                const el = document.getElementById(`report-${r.id}`);
-                el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                (el as HTMLElement | null)?.focus();
-              }}
-              style={{ left: `${r.x}%`, top: `${r.y}%` }}
-              className="group absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#C62828] ring-2 ring-white shadow hover:h-5 hover:w-5 focus-visible:h-5 focus-visible:w-5">
-              <span className="sr-only">Reported barrier: {r.snippet}. Jump to it on the board.</span>
-              <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-pine px-2 py-0.5 font-body text-xs font-semibold text-white group-hover:block group-focus-visible:block">
-                {r.snippet}
-              </span>
-            </button>
-          ))}
-
-          {/* NAVY NUMBERED PINS: documented barriers */}
-          {pins.map((p) => (
-            <button key={p.id} type="button" onClick={() => router.push(`/barrier?id=${p.id}`)}
-              style={{ left: `${p.x}%`, top: `${p.y}%` }}
-              className="group absolute z-10 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pine font-display text-base font-bold text-white shadow-md ring-2 ring-white hover:bg-fern focus-visible:bg-fern">
-              {p.n}
-              <span className="sr-only">: {p.label} — {STATUS_TEXT[p.status] ?? p.status}. Open the paper trail.</span>
-              <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-pine px-2.5 py-1 font-body text-xs font-semibold text-white group-hover:block group-focus-visible:block">
-                {p.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+        ref={containerRef}
+        role="application"
+        aria-label="Interactive map of Reston Town Center. Zoom and pan to explore; select a location to report an accessibility barrier. Documented barriers and community reports are marked."
+        className="mt-3 overflow-hidden rounded-xl border border-moss/30"
+        style={{ height: "clamp(420px, 70vh, 720px)" }}
+      />
     </section>
   );
+}
+
+/** best human name + address under a clicked point, from the vector tiles */
+function describe(map: MLMap, point: { x: number; y: number }): { name: string; addr: string | null } {
+  const feats = map.queryRenderedFeatures([point.x, point.y]);
+  const streetF = feats.find((f) => f.properties?.name &&
+    /transportation|road|street/i.test(String(f.sourceLayer ?? f.layer.id)));
+  const namedF = feats.find((f) => f.properties?.name &&
+    /poi|place|building|landuse|park|water/i.test(String(f.sourceLayer ?? f.layer.id)))
+    ?? feats.find((f) => f.properties?.name);
+  const house = feats.find((f) => f.properties?.housenumber)?.properties?.housenumber as string | undefined;
+  const street = streetF?.properties?.name as string | undefined;
+  const name = (namedF?.properties?.name as string | undefined) ?? street ?? "Selected spot";
+  const addr = house ? `${house}${street ? ` ${street}` : ""}` : (street && namedF ? street : null);
+  return { name, addr };
+}
+
+/** warm/tan palette to echo the SPARC illustrated basemap */
+function warmPalette(map: MLMap) {
+  const layers = map.getStyle().layers ?? [];
+  for (const L of layers) {
+    try {
+      const id = L.id.toLowerCase();
+      if (L.type === "background") map.setPaintProperty(L.id, "background-color", "#f3ece0");
+      else if (L.type === "fill") {
+        if (/water/.test(id)) map.setPaintProperty(L.id, "fill-color", "#b7c9d6");
+        else if (/building/.test(id)) map.setPaintProperty(L.id, "fill-color", "#ded2ba");
+        else if (/(park|wood|grass|forest|green|cemetery|pitch|golf|landcover|landuse)/.test(id)) map.setPaintProperty(L.id, "fill-color", "#d9e0c6");
+        else if (/(residential|suburb|neighbourhood|built)/.test(id)) map.setPaintProperty(L.id, "fill-color", "#efe7d8");
+      } else if (L.type === "line") {
+        if (/water|river|stream|canal/.test(id)) map.setPaintProperty(L.id, "line-color", "#b7c9d6");
+        else if (/casing/.test(id)) map.setPaintProperty(L.id, "line-color", "#e7dcc4");
+        else if (/(motorway|trunk|primary)/.test(id)) map.setPaintProperty(L.id, "line-color", "#fbf3e0");
+        else if (/(road|street|transportation|secondary|tertiary|service|path|pedestrian)/.test(id)) map.setPaintProperty(L.id, "line-color", "#fbf6ec");
+      } else if (L.type === "symbol") {
+        if (map.getLayoutProperty(L.id, "text-field") !== undefined) {
+          map.setPaintProperty(L.id, "text-color", "#5c503b");
+          map.setPaintProperty(L.id, "text-halo-color", "#f7f1e6");
+          map.setPaintProperty(L.id, "text-halo-width", 1.4);
+        }
+      }
+    } catch { /* layer lacks that property — skip */ }
+  }
 }

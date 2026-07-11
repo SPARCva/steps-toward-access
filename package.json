@@ -16,6 +16,7 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@radix-ui/react-visually-hidden": "^1.1.2",
     "@supabase/supabase-js": "^2.49.0",
+    "maplibre-gl": "^4.7.1",
     "next": "^15.3.0",
     "papaparse": "^5.5.4",
     "react": "^19.0.0",
