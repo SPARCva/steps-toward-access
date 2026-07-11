@@ -56,12 +56,12 @@ export default function CommunityQueue() {
     return <Shell><p><Link href="/console" className="font-semibold text-fern underline underline-offset-4">Sign in</Link> to see community reports.</p></Shell>;
 
   async function toggleShown(r: Report) {
-    setBusy(r.id);
+    setBusyId(r.id);
     const next = !r.shown_publicly;
     const { error } = await supabase.from("access_public_reports")
       .update({ shown_publicly: next, shown_at: next ? new Date().toISOString() : null })
       .eq("id", r.id);
-    setBusy(null);
+    setBusyId(null);
     if (!error) load();
   }
 
