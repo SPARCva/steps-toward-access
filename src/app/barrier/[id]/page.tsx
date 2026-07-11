@@ -10,7 +10,7 @@ export default async function BarrierPage({ params }: { params: Promise<{ id: st
   const supabase = publicClient();
   const { data: b } = await supabase
     .from("access_locations")
-    .select("id, label, status, summary, created_at, access_parties(name, org_type), access_photos(src, alt, caption, sort), access_events(when_label, occurred_on, dir, txt, sort)")
+    .select("id, label, status, summary, created_at, party_id, access_parties(name, org_type), access_photos(src, alt, caption, sort), access_events(when_label, occurred_on, dir, txt, sort)")
     .eq("id", id)
     .eq("published", true)
     .maybeSingle();
@@ -44,7 +44,10 @@ export default async function BarrierPage({ params }: { params: Promise<{ id: st
       <h1 className="mt-3 font-display text-4xl font-bold text-pine">{b.label}</h1>
       {party?.name && (
         <p className="mt-2 text-moss">
-          Responsible party: <strong className="text-ink">{party.name}</strong>
+          Responsible party:{" "}
+          <Link href={`/party/${b.party_id}`} className="font-bold text-fern underline underline-offset-4">
+            {party.name}
+          </Link>
           {party.org_type ? ` (${party.org_type})` : ""}
         </p>
       )}

@@ -11,7 +11,7 @@ export default async function RecordPage() {
   const supabase = publicClient();
   const { data: barriers } = await supabase
     .from("access_locations")
-    .select("id, label, status, summary, updated_at, lat, lon, x, y, access_parties(name), access_photos(src, alt, sort)")
+    .select("id, label, status, summary, updated_at, lat, lon, x, y, party_id, access_parties(name), access_photos(src, alt, sort)")
     .eq("published", true)
     .order("updated_at", { ascending: false });
 
@@ -56,7 +56,11 @@ export default async function RecordPage() {
                 <div className="mt-4 sm:mt-0">
                   <div className="flex flex-wrap items-center gap-3">
                     <StatusBadge status={b.status} />
-                    {party?.name && <span className="text-sm text-moss">Responsible: {party.name}</span>}
+                    {party?.name && (
+                      <Link href={`/party/${b.party_id}`} className="text-sm font-semibold text-moss underline underline-offset-4 hover:text-fern">
+                        Responsible: {party.name}
+                      </Link>
+                    )}
                   </div>
                   <h2 className="mt-2 font-display text-2xl font-semibold text-pine">
                     <Link href={`/barrier/${b.id}`} className="hover:underline">{b.label}</Link>

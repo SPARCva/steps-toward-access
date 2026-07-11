@@ -60,6 +60,16 @@ export default function ConsolePage() {
           </p>
         </Link>
         <Link
+          href="/console/record"
+          className="rounded-xl border border-moss/30 bg-paper p-6 hover:border-fern"
+        >
+          <h2 className="font-display text-xl font-semibold text-pine">The record</h2>
+          <p className="mt-2 text-moss">
+            Every barrier, draft and published. Edit details, place pins,
+            manage photos and the paper trail{staff.role !== "contributor" ? ", and publish" : ""}.
+          </p>
+        </Link>
+        <Link
           href="/console/queue"
           className="rounded-xl border border-moss/30 bg-paper p-6 hover:border-fern"
         >

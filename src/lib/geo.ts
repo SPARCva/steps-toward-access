@@ -12,3 +12,10 @@ export function inFrame(lat: number, lon: number) {
   const { x, y } = toPercent(lat, lon);
   return x >= 0 && x <= 100 && y >= 0 && y <= 100;
 }
+
+/** percentage position on the basemap -> lat/lon (inverse of toPercent). */
+export function fromPercent(xPct: number, yPct: number) {
+  const lon = RTC_BOX.west + (xPct / 100) * (RTC_BOX.east - RTC_BOX.west);
+  const lat = RTC_BOX.north - (yPct / 100) * (RTC_BOX.north - RTC_BOX.south);
+  return { lat, lon };
+}

@@ -18,16 +18,22 @@ export async function compressPhoto(file: File): Promise<Blob> {
   return blob ?? file;
 }
 
-export async function uploadSubmissionPhoto(
+export async function uploadPhoto(
   supabase: import("@supabase/supabase-js").SupabaseClient,
-  submissionId: string,
+  folder: string,
   file: File
 ): Promise<string> {
   const blob = await compressPhoto(file);
-  const path = `submissions/${submissionId}/${crypto.randomUUID()}.jpg`;
+  const path = `${folder}/${crypto.randomUUID()}.jpg`;
   const { error } = await supabase.storage
     .from("barrier-photos")
     .upload(path, blob, { contentType: "image/jpeg", cacheControl: "3600" });
   if (error) throw error;
   return supabase.storage.from("barrier-photos").getPublicUrl(path).data.publicUrl;
 }
+
+export const uploadSubmissionPhoto = (
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  submissionId: string,
+  file: File
+) => uploadPhoto(supabase, `submissions/${submissionId}`, file);
