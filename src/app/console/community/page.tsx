@@ -37,6 +37,8 @@ export default function CommunityQueue() {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [eDesc, setEDesc] = useState(""); const [ePlace, setEPlace] = useState("");
 
   async function load() {
     const { data } = await supabase
@@ -56,8 +58,6 @@ export default function CommunityQueue() {
     return <Shell><p><Link href="/console" className="font-semibold text-fern underline underline-offset-4">Sign in</Link> to see community reports.</p></Shell>;
 
 
-  const [editing, setEditing] = useState<string | null>(null);
-  const [eDesc, setEDesc] = useState(""); const [ePlace, setEPlace] = useState("");
   function startEdit(r: Report) { setEditing(r.id); setEDesc(r.barrier_desc); setEPlace(r.place_desc ?? ""); }
   async function saveEdit(r: Report) {
     setBusyId(r.id);
