@@ -302,7 +302,7 @@ export default function OnePage() {
               <p className="mt-1 text-sm text-moss">Show the barrier — snap one with your phone or upload from your device. Location data is stripped automatically.</p>
               <label htmlFor="bphotos" className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-moss/50 bg-paper px-5 py-3 font-semibold text-fern hover:border-fern">
                 + Add photos
-                <input id="bphotos" ref={fileInputRef} type="file" accept="image/*" multiple capture="environment"
+                <input id="bphotos" ref={fileInputRef} type="file" accept="image/*" multiple
                   className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
               </label>
               {photos.length > 0 && (
@@ -338,7 +338,7 @@ export default function OnePage() {
               className="rounded-lg bg-fern px-6 py-3 font-semibold text-white hover:bg-pine disabled:opacity-60">
               {sending ? "Posting…" : "Post the barrier"}
             </button>
-            <p className="text-sm text-moss">
+            <p className="text-base text-pine sm:text-lg">
               Want to send a letter about it too? <Link href="/report" className="font-semibold text-fern underline underline-offset-4">We&rsquo;ll help you write one.</Link>
             </p>
           </div>
