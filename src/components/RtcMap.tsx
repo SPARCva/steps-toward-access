@@ -174,11 +174,10 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
   return (
     <section aria-label="Map of Reston Town Center barriers" className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-moss">
+        <p className="text-base font-medium text-pine sm:text-lg">
           {onPlacePick
-            ? <>Tap any street, building, or spot to report a barrier there — or type the address or place name in the form below. Red pins are barriers; click one to open it. </>
-            : <>Red pins are barriers; click one to open it. Zoom in for more street names. </>}
-          <a href="#add" className="font-semibold text-fern underline underline-offset-4">Skip past the map</a>
+            ? <>Tap any street, building, or spot to report a barrier there — or type the address or place name in the form below. Red pins are barriers; click one to open it.</>
+            : <>Red pins are barriers; click one to open it. Zoom in for more street names.</>}
         </p>
       </div>
 
