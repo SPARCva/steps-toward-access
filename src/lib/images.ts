@@ -37,3 +37,30 @@ export const uploadSubmissionPhoto = (
   submissionId: string,
   file: File
 ) => uploadPhoto(supabase, `submissions/${submissionId}`, file);
+
+const REPORT_BUCKET = "report-photos";
+
+/** Public-report photos: anyone (public, no login) can attach a photo to a
+ *  community report. Compresses + strips EXIF, uploads to the public
+ *  `report-photos` bucket, and returns the storage path stored in
+ *  access_public_reports.photo_paths. */
+export async function uploadReportPhoto(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  file: File
+): Promise<string> {
+  const blob = await compressPhoto(file);
+  const path = `${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage
+    .from(REPORT_BUCKET)
+    .upload(path, blob, { contentType: "image/jpeg", cacheControl: "3600" });
+  if (error) throw error;
+  return path;
+}
+
+/** Turn a stored report photo path into a public URL for display. */
+export function reportPhotoUrl(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  path: string
+): string {
+  return supabase.storage.from(REPORT_BUCKET).getPublicUrl(path).data.publicUrl;
+}

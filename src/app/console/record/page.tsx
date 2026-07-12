@@ -29,7 +29,7 @@ function RecordInner() {
   const [label, setLabel] = useState("");
   const [summary, setSummary] = useState("");
   const [status, setStatus] = useState<string>("documented");
-  const [published, setPublished] = useState(false);
+  const [published, setPublished] = useState(isNew); // new barriers publish on save — no approval step
   const [parties, setParties] = useState<Party[]>([]);
   const [partyId, setPartyId] = useState("");
   const [newParty, setNewParty] = useState("");
@@ -108,10 +108,13 @@ function RecordInner() {
       };
       let bid = id;
       if (!bid) {
+        // New barriers are public immediately — no separate approval step.
+        const pub = next?.published ?? true;
         const { data, error } = await supabase.from("access_locations")
-          .insert({ ...fields, created_by: staff!.email }).select("id").single();
+          .insert({ ...fields, published: pub, created_by: staff!.email }).select("id").single();
         if (error) throw error;
         bid = data.id; setId(bid);
+        setPublished(pub);
         window.history.replaceState(null, "", `/ART/console/record?id=${bid}`);
       } else {
         const { error } = await supabase.from("access_locations").update(fields).eq("id", bid);

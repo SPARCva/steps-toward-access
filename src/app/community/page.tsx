@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { reportPhotoUrl } from "@/lib/images";
 
 type Report = {
   id: string;
@@ -11,6 +12,7 @@ type Report = {
   place_desc: string | null;
   status: string;
   created_at: string;
+  photo_paths: string[] | null;
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -32,7 +34,7 @@ export default function CommunityBoard() {
   useEffect(() => {
     supabase
       .from("access_community_board")
-      .select("id, barrier_type, barrier_desc, place_desc, status, created_at")
+      .select("id, barrier_type, barrier_desc, place_desc, status, created_at, photo_paths")
       .order("created_at", { ascending: false })
       .limit(200)
       .then(({ data }) => setReports((data as Report[]) ?? []));
@@ -46,9 +48,8 @@ export default function CommunityBoard() {
       <h1 className="font-display text-4xl font-bold text-pine">Community reports</h1>
       <p className="mt-3 max-w-prose text-lg">
         Barriers that people across the community have flagged. Reports appear
-        here after a quick look by the SPARC team, and reporters&rsquo; names are
-        never shown. When the team takes one up, it can become a fully
-        documented entry on <Link href="/map" className="font-semibold text-fern underline underline-offset-4">the record</Link>.
+        here right away, and reporters&rsquo; names are never shown. When the team
+        takes one up, it can become a fully documented entry on <Link href="/map" className="font-semibold text-fern underline underline-offset-4">the record</Link>.
       </p>
 
       {reports === null ? (
@@ -74,6 +75,17 @@ export default function CommunityBoard() {
               </div>
               <p className="mt-3 max-w-prose whitespace-pre-wrap">{r.barrier_desc}</p>
               {r.place_desc && <p className="mt-2 text-sm text-moss">{r.place_desc}</p>}
+              {r.photo_paths && r.photo_paths.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-3">
+                  {r.photo_paths.map((path, i) => (
+                    <li key={i}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={reportPhotoUrl(supabase, path)} alt={`Photo of the reported barrier${r.place_desc ? ` at ${r.place_desc}` : ""}`}
+                        className="h-32 w-32 rounded-lg border border-moss/30 object-cover" />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

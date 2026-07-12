@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { RtcMap } from "@/components/RtcMap";
-import type { MapPlace } from "@/components/RtcMap";
 import { StatusBadge } from "@/components/StatusBadge";
+import { uploadReportPhoto, reportPhotoUrl } from "@/lib/images";
+import { RTC_BOX } from "@/lib/geo";
 
 /** ONE page: the map of documented barriers, a form to add what you found,
  *  and everything the community has reported — for staff and public alike. */
@@ -19,7 +20,10 @@ type Report = {
   place_desc: string | null; lat: number | null; lon: number | null;
   status: string; created_at: string;
   still_there_count: number; gone_count: number;
+  photo_paths: string[] | null;
 };
+type Geo = { display_name: string; lat: string; lon: string };
+type Pending = { file: File; preview: string };
 
 const TYPES = [
   ["parking","Parking"],["path","Sidewalk / curb ramps"],["entrance","Entrance / steps"],
@@ -43,13 +47,63 @@ export default function OnePage() {
   const [email, setEmail] = useState(""); const [website, setWebsite] = useState(""); // honeypot
   const [sending, setSending] = useState(false); const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // address / place-name search
+  const [geoResults, setGeoResults] = useState<Geo[] | null>(null);
+  const [geoSearching, setGeoSearching] = useState(false);
+  // photos to attach (uploaded on submit)
+  const [photos, setPhotos] = useState<Pending[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function loadReports() {
     const { data } = await supabase
       .from("access_community_board")
-      .select("id, barrier_type, barrier_desc, place_desc, lat, lon, status, created_at, still_there_count, gone_count")
+      .select("id, barrier_type, barrier_desc, place_desc, lat, lon, status, created_at, still_there_count, gone_count, photo_paths")
       .order("created_at", { ascending: false }).limit(100);
     setReports((data as Report[]) ?? []);
+  }
+
+  // Look up an address or business/place name and drop a pin on it.
+  async function searchPlace() {
+    const q = place.trim();
+    if (!q) return;
+    setGeoSearching(true); setErr(null);
+    try {
+      const box = `${RTC_BOX.west},${RTC_BOX.north},${RTC_BOX.east},${RTC_BOX.south}`;
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&viewbox=${box}&q=${encodeURIComponent(q)}`,
+        { headers: { Accept: "application/json" } }
+      );
+      const data = (await r.json()) as Geo[];
+      setGeoResults(data);
+      if (data.length === 0) setErr("No matches — you can still type the place in the box above and post it as-is.");
+    } catch {
+      setErr("Address lookup isn't available right now — typing the place in the box works too.");
+      setGeoResults(null);
+    } finally {
+      setGeoSearching(false);
+    }
+  }
+
+  function pickGeo(g: Geo) {
+    setPlace(g.display_name);
+    setSpot({ lat: parseFloat(g.lat), lon: parseFloat(g.lon) });
+    setGeoResults(null);
+    setSent(false);
+  }
+
+  function addPhotos(files: FileList | null) {
+    if (!files) return;
+    const next = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    setPhotos((ps) => [...ps, ...next]);
+  }
+  function removePhoto(i: number) {
+    setPhotos((ps) => {
+      const target = ps[i];
+      if (target) URL.revokeObjectURL(target.preview);
+      return ps.filter((_, j) => j !== i);
+    });
   }
   useEffect(() => {
     supabase.from("access_public_stats").select("*").maybeSingle()
@@ -77,6 +131,17 @@ export default function OnePage() {
     if (website) return; // honeypot
     if (desc.trim().length < 10) { setErr("Tell us a little more — at least a sentence."); return; }
     setSending(true); setErr(null);
+
+    // Upload any attached photos first (public bucket, no login needed).
+    let photoPaths: string[] = [];
+    try {
+      photoPaths = await Promise.all(photos.map((p) => uploadReportPhoto(supabase, p.file)));
+    } catch {
+      setSending(false);
+      setErr("A photo didn't upload — remove it and try again, or post without it.");
+      return;
+    }
+
     const { error } = await supabase.from("access_public_reports").insert({
       barrier_type: type || null,
       barrier_desc: desc.trim(),
@@ -85,10 +150,15 @@ export default function OnePage() {
       lon: spot?.lon ?? null,
       reporter_name: name.trim() || null,
       reporter_email: email.trim() || null,
+      photo_paths: photoPaths.length ? photoPaths : null,
     });
     setSending(false);
     if (error) { setErr("That didn't go through — try again in a moment."); return; }
     setSent(true); setType(""); setDesc(""); setPlace(""); setSpot(null);
+    setGeoResults(null);
+    photos.forEach((p) => URL.revokeObjectURL(p.preview));
+    setPhotos([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     loadReports();
   }
 
@@ -98,7 +168,7 @@ export default function OnePage() {
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-5 py-4">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <a href="https://sparcsolutions.org"><img src="https://sparcsolutions.org/images/SPARC_logo.png" alt="SPARC home" className="h-10 w-auto" /></a>
+            <a href="https://sparcsolutions.org"><img src="/ART/SPARC_logo.png" alt="SPARC home" className="h-10 w-auto" /></a>
             <p className="font-display text-lg font-bold text-fern">
               Accessibility in Real Time
               <span className="ml-2 hidden font-body text-sm font-normal text-moss sm:inline">Reston Town Center</span>
@@ -132,6 +202,7 @@ export default function OnePage() {
             onPlacePick={(pl) => {
               setPlace(pl.addr ? `${pl.name}, ${pl.addr}` : pl.name);
               setSpot({ lat: pl.lat, lon: pl.lon });
+              setGeoResults(null);
               setSent(false);
               document.getElementById("add")?.scrollIntoView({ behavior: "smooth", block: "start" });
               setTimeout(() => document.getElementById("bdesc")?.focus(), 450);
@@ -194,9 +265,58 @@ export default function OnePage() {
             </div>
             <div>
               <label htmlFor="bplace" className="block font-bold">Where is it?</label>
-              <input id="bplace" value={place} onChange={(e) => setPlace(e.target.value)}
-                placeholder="Business name, address, or landmark"
-                className="mt-2 w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+              <p className="mt-1 text-sm text-moss">Type an address or place name and tap Find to drop a pin — or click the spot on the map above.</p>
+              <div className="mt-2 flex gap-2">
+                <input id="bplace" value={place}
+                  onChange={(e) => { setPlace(e.target.value); setSpot(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchPlace(); } }}
+                  placeholder="Business name, address, or landmark"
+                  className="w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+                <button type="button" onClick={searchPlace} disabled={geoSearching || !place.trim()}
+                  className="shrink-0 rounded-lg border-2 border-fern px-5 py-3 font-semibold text-fern hover:bg-fern/10 disabled:opacity-50">
+                  {geoSearching ? "Finding…" : "Find"}
+                </button>
+              </div>
+              {geoResults && geoResults.length > 0 && (
+                <fieldset className="mt-3 rounded-xl border border-moss/30 bg-paper p-4">
+                  <legend className="px-1 text-sm font-bold">Which one is it?</legend>
+                  <div className="space-y-2">
+                    {geoResults.map((g, i) => (
+                      <label key={i} className="flex cursor-pointer items-start gap-2 text-sm">
+                        <input type="radio" name="geopick" className="mt-1"
+                          checked={spot?.lat === parseFloat(g.lat) && spot?.lon === parseFloat(g.lon)}
+                          onChange={() => pickGeo(g)} />
+                        <span>{g.display_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              {spot && place && (
+                <p role="status" className="mt-2 text-sm font-semibold text-pine">Pin dropped ✓</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="bphotos" className="block font-bold">Add a photo <span className="font-normal text-moss">(optional)</span></label>
+              <p className="mt-1 text-sm text-moss">Show the barrier — snap one with your phone or upload from your device. Location data is stripped automatically.</p>
+              <label htmlFor="bphotos" className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-moss/50 bg-paper px-5 py-3 font-semibold text-fern hover:border-fern">
+                + Add photos
+                <input id="bphotos" ref={fileInputRef} type="file" accept="image/*" multiple capture="environment"
+                  className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
+              </label>
+              {photos.length > 0 && (
+                <ul className="mt-3 flex flex-wrap gap-3">
+                  {photos.map((p, i) => (
+                    <li key={i} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.preview} alt={`Selected photo ${i + 1}`} className="h-24 w-24 rounded-lg border border-moss/30 object-cover" />
+                      <button type="button" aria-label={`Remove photo ${i + 1}`} onClick={() => removePhoto(i)}
+                        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-moss/40 bg-paper font-bold text-moss shadow hover:text-s_documented">✕</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -248,6 +368,17 @@ export default function OnePage() {
                   </div>
                   <p className="mt-3 max-w-prose whitespace-pre-wrap">{r.barrier_desc}</p>
                   {r.place_desc && <p className="mt-2 text-sm text-moss">{r.place_desc}</p>}
+                  {r.photo_paths && r.photo_paths.length > 0 && (
+                    <ul className="mt-3 flex flex-wrap gap-3">
+                      {r.photo_paths.map((path, i) => (
+                        <li key={i}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={reportPhotoUrl(supabase, path)} alt={`Photo of the reported barrier${r.place_desc ? ` at ${r.place_desc}` : ""}`}
+                            className="h-32 w-32 rounded-lg border border-moss/30 object-cover" />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Is this barrier still there?">
                     <span className="text-sm font-bold">Still there?</span>
                     <button type="button" disabled={!!checked[r.id]} onClick={() => check(r, "still_there")}

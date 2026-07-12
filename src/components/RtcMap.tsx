@@ -3,24 +3,18 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fromPercent, RTC_BOX } from "@/lib/geo";
-import HOVER from "@/data/hover_shapes.json";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MLMap, Marker as MLMarker } from "maplibre-gl";
 
 /**
- * The Town Center map — now a real interactive vector map (MapLibre GL + free
+ * The Town Center map — a real interactive vector map (MapLibre GL + free
  * OpenFreeMap tiles). Street names are rendered by the map engine, so they fit
- * the streets, follow curves, and reveal smaller streets as you zoom. Rules are
- * unchanged from the old illustrated version:
+ * the streets, follow curves, and reveal smaller streets as you zoom.
  *  - Clicking a street / building / spot starts a barrier report there
- *    (calls onPlacePick with the place name + real lat/lon).
- *  - The ONLY markers are barriers: navy numbered pins for documented barriers,
- *    red dots for community reports.
- *  - A keyboard/screen-reader place picker gives non-mouse users the same
- *    "report at a named place" path the old focusable buildings provided.
- *
- * Props, exports, and types are identical to the previous component, so page.tsx
- * needs no changes.
+ *    (calls onPlacePick with the place name + real lat/lon). You can also just
+ *    type the address or place name into the report form.
+ *  - Every barrier is a red pin you can click: documented barriers open their
+ *    paper trail; community reports jump to their entry on the board below.
  */
 
 export type MapBarrier = {
@@ -30,17 +24,36 @@ export type MapBarrier = {
 export type MapReport = { id: string; snippet: string; lat: number | null; lon: number | null };
 export type MapPlace = { name: string; addr: string | null; lat: number; lon: number };
 
-type Shape = { label: string; cx: number; cy: number; lat: number; lon: number };
-const PLACES = (HOVER as { shapes: Shape[] }).shapes;
-
 const STATUS_TEXT: Record<string, string> = {
   documented: "Documented", contacted: "Letter sent",
   awaiting: "Awaiting response", resolved: "Resolved",
 };
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-const NAVY = "#002B50";
 const RED = "#C62828";
+
+/** A red teardrop pin element (anchored at its tip). */
+function pinElement(): HTMLButtonElement {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.style.cssText = "background:none;border:0;padding:0;cursor:pointer;line-height:0;display:block";
+  el.innerHTML =
+    `<svg width="28" height="38" viewBox="0 0 28 38" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">` +
+    `<path d="M14 1C7.4 1 2 6.3 2 12.9 2 21.5 14 37 14 37s12-15.5 12-24.1C26 6.3 20.6 1 14 1z" ` +
+    `fill="${RED}" stroke="#fff" stroke-width="2"/>` +
+    `<circle cx="14" cy="13" r="4.5" fill="#fff"/></svg>`;
+  return el;
+}
+
+/** A small red dot element (anchored at its center). */
+function dotElement(): HTMLButtonElement {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.style.cssText =
+    `width:16px;height:16px;border-radius:50%;background:${RED};border:2px solid #fff;` +
+    `box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;padding:0`;
+  return el;
+}
 
 /** best geographic coordinate for a barrier/report: real lat/lon, else the
  *  legacy pixel position converted back through the basemap projection. */
@@ -127,15 +140,12 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
     markersRef.current = [];
     const { barriers, reports } = dataRef.current;
 
-    // community reports — red dots
+    // community reports — small red dots that jump to their board entry
     reports.forEach((r) => {
       const ll = lngLatOf(r);
       if (!ll) return;
-      const el = document.createElement("button");
-      el.type = "button";
+      const el = dotElement();
       el.setAttribute("aria-label", `Reported barrier: ${r.snippet}. Jump to it on the board.`);
-      el.style.cssText =
-        `width:16px;height:16px;border-radius:50%;background:${RED};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;padding:0`;
       el.title = r.snippet;
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -146,58 +156,30 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
       markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map));
     });
 
-    // documented barriers — navy numbered pins
+    // documented barriers — red pins that open the paper trail
     barriers.forEach((b, i) => {
       const ll = lngLatOf(b);
       if (!ll) return;
-      const el = document.createElement("button");
-      el.type = "button";
+      const el = pinElement();
       el.setAttribute("aria-label", `Barrier ${i + 1}: ${b.label} — ${STATUS_TEXT[b.status] ?? b.status}. Open the paper trail.`);
-      el.textContent = String(i + 1);
-      el.style.cssText =
-        `display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;` +
-        `background:${NAVY};color:#fff;font-weight:700;font-size:15px;border:2px solid #fff;` +
-        `box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;padding:0`;
       el.title = b.label;
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
         router.push(`/barrier?id=${b.id}`);
       });
-      markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(ll).addTo(map));
+      markersRef.current.push(new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat(ll).addTo(map));
     });
-  }
-
-  // keyboard / screen-reader parity: choose a named place to report there
-  function pickPlace(idx: number) {
-    const s = PLACES[idx];
-    if (!s) return;
-    const [name, addr] = s.label.includes(" · ") ? s.label.split(" · ") : [s.label, null];
-    dataRef.current.onPlacePick?.({ name, addr: addr ?? null, lat: s.lat, lon: s.lon });
-    document.getElementById("add")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
     <section aria-label="Map of Reston Town Center barriers" className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-moss">
-          Tap any street, building, or spot to report a barrier there — zoom in for
-          more street names. Navy pins: documented barriers. Red dots: community
-          reports. <a href="#add" className="font-semibold text-fern underline underline-offset-4">Skip past the map</a>
+          {onPlacePick
+            ? <>Tap any street, building, or spot to report a barrier there — or type the address or place name in the form below. Red pins are barriers; click one to open it. </>
+            : <>Red pins are barriers; click one to open it. Zoom in for more street names. </>}
+          <a href="#add" className="font-semibold text-fern underline underline-offset-4">Skip past the map</a>
         </p>
-        {onPlacePick && (
-          <label className="text-sm text-moss">
-            <span className="sr-only">Report at a specific place</span>
-            <select
-              defaultValue=""
-              aria-label="Report a barrier at a specific place"
-              onChange={(e) => { const v = e.target.value; if (v !== "") { pickPlace(Number(v)); e.currentTarget.value = ""; } }}
-              className="rounded-lg border-2 border-fern bg-paper px-3 py-2 text-sm text-pine"
-            >
-              <option value="">Report at a place…</option>
-              {PLACES.map((s, i) => <option key={i} value={i}>{s.label}</option>)}
-            </select>
-          </label>
-        )}
       </div>
 
       <div

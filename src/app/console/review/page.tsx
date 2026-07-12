@@ -115,7 +115,7 @@ function ReviewInner() {
           party_id: pid,
           summary: sub.barrier_desc,
           status: "documented",
-          published: false,
+          published: true,
           created_by: staff!.email,
         })
         .select("id")
@@ -145,7 +145,7 @@ function ReviewInner() {
         .from("access_submissions")
         .update({ status: "merged", merged_location_id: loc.id })
         .eq("id", id);
-      setMsg("Converted to a draft barrier. It stays unpublished until an editor publishes it.");
+      setMsg("Added to the public record — it's live now. Edit or unpublish it any time from the record.");
       setConverting(false);
       load();
     } catch (e) {
@@ -195,11 +195,10 @@ function ReviewInner() {
 
             {sub.status === "merged" && sub.merged_location_id ? (
               <p className="mt-3 text-sm">
-                Merged into the record.{" "}
+                Added to the public record — it&rsquo;s live now.{" "}
                 <Link href={`/barrier?id=${sub.merged_location_id}`} className="font-semibold text-fern underline underline-offset-4">
                   View the barrier
-                </Link>{" "}
-                (publish it from the record when it&rsquo;s ready).
+                </Link>.
               </p>
             ) : converting ? (
               <div className="mt-3 space-y-4">
@@ -224,7 +223,7 @@ function ReviewInner() {
                 <div className="flex gap-3">
                   <button onClick={convert} disabled={busy}
                     className="rounded-lg bg-fern px-4 py-2 text-sm font-semibold text-white hover:bg-pine disabled:opacity-60">
-                    {busy ? "Converting…" : "Create draft barrier"}
+                    {busy ? "Adding…" : "Add to the record"}
                   </button>
                   <button onClick={() => setConverting(false)}
                     className="rounded-lg border border-moss/50 px-4 py-2 text-sm font-semibold text-moss">
@@ -242,7 +241,7 @@ function ReviewInner() {
                 )}
                 <button onClick={() => setConverting(true)} disabled={busy}
                   className="rounded-lg bg-pine px-4 py-2.5 text-sm font-semibold text-white hover:bg-fern disabled:opacity-60">
-                  Approve → create draft barrier
+                  Approve → add to the record
                 </button>
                 <div className="mt-2">
                   <label htmlFor="note" className="block text-sm font-bold">Note to {sub.created_by.split("@")[0]}</label>
