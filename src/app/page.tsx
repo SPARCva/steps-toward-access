@@ -165,50 +165,85 @@ export default function OnePage() {
 
   return (
     <>
-      <header className="border-b border-moss/30 bg-paper">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-5 py-4">
+      <header className="sticky top-0 z-40 border-b border-moss/15 bg-paper/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3.5">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <a href="https://sparcsolutions.org"><img src="/ART/SPARC_logo.png" alt="SPARC home" className="h-10 w-auto" /></a>
-            <p className="font-display text-lg font-bold text-fern">
+            <a href="https://sparcsolutions.org" className="shrink-0"><img src="/ART/SPARC_logo.png" alt="SPARC home" className="h-9 w-auto" /></a>
+            <span aria-hidden="true" className="hidden h-8 w-px bg-moss/25 sm:block" />
+            <p className="font-display text-lg font-bold leading-tight text-fern">
               Accessibility in Real Time
               <span className="ml-2 hidden font-body text-sm font-normal text-moss sm:inline">Reston Town Center</span>
             </p>
           </div>
           <nav aria-label="More">
-            <ul className="flex gap-5 text-sm font-semibold">
-              <li><Link href="#partner" className="text-pine underline-offset-4 hover:underline">Partner with us</Link></li>
-              <li><Link href="/report" className="text-pine underline-offset-4 hover:underline">Write a letter</Link></li>
-              <li><Link href="/console" className="text-moss underline-offset-4 hover:underline">Team console</Link></li>
+            <ul className="flex items-center gap-2 text-sm font-semibold sm:gap-4">
+              <li><Link href="#partner" className="rounded-lg px-2 py-1 text-pine underline-offset-4 hover:underline">Partner with us</Link></li>
+              <li><Link href="/report" className="rounded-lg px-2 py-1 text-pine underline-offset-4 hover:underline">Write a letter</Link></li>
+              <li><Link href="/console" className="rounded-lg border border-moss/30 px-3 py-1.5 text-moss transition-colors hover:border-fern hover:text-fern">Team console</Link></li>
             </ul>
           </nav>
         </div>
       </header>
 
-      <main id="main" className="mx-auto max-w-5xl px-5 py-10">
-        <h1 className="max-w-prose font-display text-3xl font-bold leading-tight text-pine sm:text-4xl">
-          Reston Town Center is a place we love — let&rsquo;s make it even better, together.
-        </h1>
-        <p className="mt-4 max-w-prose text-lg leading-relaxed">
-          Accessibility in Real Time began with three of SPARC&rsquo;s Agents of Change
-          — Katherine, Numi, and Jonah — who chose Reston Town Center because it&rsquo;s
-          one of their favorite places to be. This isn&rsquo;t about pointing fingers.
-          It&rsquo;s about celebrating what already makes RTC welcoming and partnering
-          with the businesses, property teams, and neighbors who love it to make it
-          work beautifully for everyone.
-        </p>
-        <p className="mt-3 font-display text-lg font-semibold text-pine" aria-live="polite">
+      <main id="main" className="mx-auto max-w-5xl px-5 pb-16 pt-10 sm:pt-14">
+        {/* HERO */}
+        <section className="relative overflow-hidden rounded-3xl border border-moss/15 bg-gradient-to-br from-pine to-fern px-6 py-10 text-white shadow-sm sm:px-10 sm:py-14">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-kelly/25 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative max-w-prose">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white ring-1 ring-white/25">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-kelly" />
+              SPARC Agents of Change
+            </span>
+            <h1 className="mt-5 font-display text-3xl font-bold leading-tight sm:text-[2.7rem] sm:leading-[1.1]">
+              Reston Town Center is a place we love — let&rsquo;s make it even better, together.
+            </h1>
+            <p className="mt-5 text-lg leading-relaxed text-white/90">
+              Accessibility in Real Time began with three of SPARC&rsquo;s Agents of Change
+              — Katherine, Numi, and Jonah — who chose Reston Town Center because it&rsquo;s
+              one of their favorite places to be. This isn&rsquo;t about pointing fingers.
+              It&rsquo;s about celebrating what already makes RTC welcoming and partnering
+              with the businesses, property teams, and neighbors who love it to make it
+              work beautifully for everyone.
+            </p>
+          </div>
+          {/* stat pills */}
+          <dl className="relative mt-8 flex flex-wrap gap-3" aria-live="polite">
+            {stats ? (
+              <>
+                <div className="rounded-2xl bg-white/[0.12] px-5 py-3 ring-1 ring-white/20 backdrop-blur-sm">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-white/80">Spotted in all</dt>
+                  <dd className="font-display text-2xl font-bold">{stats.documented_barriers + stats.community_reports}</dd>
+                </div>
+                <div className="rounded-2xl bg-white/[0.12] px-5 py-3 ring-1 ring-white/20 backdrop-blur-sm">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-white/80">Noted by our team</dt>
+                  <dd className="font-display text-2xl font-bold">{stats.documented_barriers}</dd>
+                </div>
+                <div className="rounded-2xl bg-white/[0.12] px-5 py-3 ring-1 ring-white/20 backdrop-blur-sm">
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-white/80">Shared by community</dt>
+                  <dd className="font-display text-2xl font-bold">{stats.community_reports}</dd>
+                </div>
+              </>
+            ) : (
+              <div className="h-[70px]" />
+            )}
+          </dl>
+        </section>
+
+        <p className="sr-only" aria-live="polite">
           {stats
             ? `${stats.documented_barriers + stats.community_reports} ways we've spotted to make Reston Town Center even more welcoming — ${stats.documented_barriers} noted by our team, ${stats.community_reports} shared by the community.`
             : "\u00A0"}
         </p>
 
         {/* AN INVITATION, NOT A REPORT CARD */}
-        <section aria-labelledby="together-h" className="mt-8 max-w-prose rounded-2xl border border-fern/30 bg-fern/5 p-6">
-          <h2 id="together-h" className="font-display text-xl font-semibold text-pine">
+        <section aria-labelledby="together-h" className="mt-8 max-w-prose overflow-hidden rounded-2xl border border-fern/25 bg-fern/[0.06] p-6 sm:p-7">
+          <h2 id="together-h" className="flex items-center gap-2 font-display text-xl font-semibold text-pine">
+            <span aria-hidden="true" className="inline-block h-5 w-1 rounded-full bg-kelly" />
             An invitation, not a report card
           </h2>
-          <p className="mt-2">
+          <p className="mt-3 leading-relaxed">
             Great places are made even better by the people who care about them.
             We share what we notice so we can work on it <em>with</em> Reston Town
             Center — recognizing everything it already does well, and treating each
@@ -216,7 +251,7 @@ export default function OnePage() {
             own, or serve this community, we&rsquo;d love to have you in from the start.
           </p>
           <p className="mt-4">
-            <Link href="#partner" className="font-semibold text-fern underline underline-offset-4">
+            <Link href="#partner" className="font-semibold text-fern underline underline-offset-4 hover:text-pine">
               Partner with us →
             </Link>
           </p>
@@ -228,6 +263,7 @@ export default function OnePage() {
         ) : (
           <RtcMap
             barriers={barriers}
+            snapToAddress
             onPlacePick={(pl) => {
               setPlace(pl.addr ? `${pl.name}, ${pl.addr}` : pl.name);
               setSpot({ lat: pl.lat, lon: pl.lon });
@@ -246,72 +282,73 @@ export default function OnePage() {
         {barriers && barriers.length > 0 && (
           <ul className="mt-6 space-y-3">
             {barriers.map((b, i) => (
-              <li key={b.id} className="rounded-xl border border-moss/30 bg-paper p-4">
+              <li key={b.id} className="card p-4 transition-shadow hover:shadow-md sm:p-5">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-full bg-pine font-display text-sm font-bold text-white">{i + 1}</span>
+                  <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-pine font-display text-sm font-bold text-white ring-2 ring-pine/10">{i + 1}</span>
                   <StatusBadge status={b.status} />
                   <h2 className="font-display text-lg font-semibold text-pine">
                     <Link href={`/barrier?id=${b.id}`} className="hover:underline">{b.label}</Link>
                   </h2>
                 </div>
-                {b.summary && <p className="mt-2 line-clamp-2 max-w-prose text-sm">{b.summary}</p>}
+                {b.summary && <p className="mt-2 line-clamp-2 max-w-prose text-sm text-ink/90">{b.summary}</p>}
               </li>
             ))}
           </ul>
         )}
 
         {/* SUBMIT */}
-        <section aria-labelledby="add-h" className="mt-14 max-w-prose scroll-mt-6" id="add">
-          <h2 id="add-h" className="font-display text-2xl font-semibold text-pine">Noticed something that could work better? Share it.</h2>
-          {place && spot && (
-            <p role="status" className="mt-2 rounded-lg bg-fern/10 px-3 py-2 text-sm font-semibold text-pine">
-              Reporting at: {place}
-            </p>
-          )}
-          <p className="mt-2">
+        <section aria-labelledby="add-h" className="mt-16 max-w-prose scroll-mt-20" id="add">
+          <h2 id="add-h" className="font-display text-2xl font-semibold text-pine sm:text-3xl">Noticed something that could work better? Share it.</h2>
+          <p className="mt-3 leading-relaxed">
             Anyone can add a note — the SPARC team and community alike. It appears
             below right away as something to work on together, and it&rsquo;s a
             starting point for a conversation, not a complaint on file. Your name
             and email are optional and never shown.
           </p>
+          {place && spot && (
+            <p role="status" className="mt-4 flex items-center gap-2 rounded-xl border border-fern/20 bg-fern/10 px-4 py-3 text-sm font-semibold text-pine">
+              <span aria-hidden="true" className="text-base">📍</span>
+              Reporting at: {place}
+            </p>
+          )}
           {sent && (
-            <p role="status" className="mt-4 rounded-lg bg-fern/10 p-4">
+            <p role="status" className="mt-4 rounded-xl border border-kelly/30 bg-kelly/10 p-4">
               <strong>Thank you.</strong> It&rsquo;s on the board below — one more way
               we can make Reston Town Center more welcoming, together.
             </p>
           )}
-          <div className="mt-5 space-y-4">
+          <div className="card mt-5 space-y-5 p-6 sm:p-7">
             <div>
-              <label htmlFor="btype" className="block font-bold">What did you notice?</label>
+              <label htmlFor="btype" className="block font-bold text-pine">What did you notice?</label>
               <select id="btype" value={type} onChange={(e) => setType(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-moss/50 bg-paper px-4 py-3">
+                className="field mt-2">
                 <option value="">Choose one (optional)</option>
                 {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="bdesc" className="block font-bold">What&rsquo;s in the way? <span aria-hidden="true" className="text-s_documented">*</span></label>
+              <label htmlFor="bdesc" className="block font-bold text-pine">What&rsquo;s in the way? <span aria-hidden="true" className="text-s_documented">*</span></label>
               <textarea id="bdesc" rows={4} required value={desc} onChange={(e) => setDesc(e.target.value)}
                 placeholder="Say it the way you'd tell a friend."
-                className="mt-2 w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+                className="field mt-2" />
             </div>
             <div>
-              <label htmlFor="bplace" className="block font-bold">Where is it?</label>
-              <p className="mt-1 text-sm text-moss">Type an address or place name and tap Find to drop a pin — or click the spot on the map above.</p>
+              <label htmlFor="bplace" className="block font-bold text-pine">Where is it?</label>
+              <p className="mt-1 text-sm text-moss">Type an address or place name and tap Find to drop a pin — or hover the map above and click an address.</p>
               <div className="mt-2 flex gap-2">
                 <input id="bplace" value={place}
                   onChange={(e) => { setPlace(e.target.value); setSpot(null); }}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchPlace(); } }}
                   placeholder="Business name, address, or landmark"
-                  className="w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+                  className="field" />
                 <button type="button" onClick={searchPlace} disabled={geoSearching || !place.trim()}
-                  className="shrink-0 rounded-lg border-2 border-fern px-5 py-3 font-semibold text-fern hover:bg-fern/10 disabled:opacity-50">
+                  className="btn btn-outline shrink-0 px-5 py-3">
                   {geoSearching ? "Finding…" : "Find"}
                 </button>
               </div>
               {geoResults && geoResults.length > 0 && (
-                <fieldset className="mt-3 rounded-xl border border-moss/30 bg-paper p-4">
-                  <legend className="px-1 text-sm font-bold">Which one is it?</legend>
+                <fieldset className="mt-3 rounded-xl border border-moss/25 bg-mist/60 p-4">
+                  <legend className="px-1 text-sm font-bold text-pine">Which one is it?</legend>
                   <div className="space-y-2">
                     {geoResults.map((g, i) => (
                       <label key={i} className="flex cursor-pointer items-start gap-2 text-sm">
@@ -325,14 +362,14 @@ export default function OnePage() {
                 </fieldset>
               )}
               {spot && place && (
-                <p role="status" className="mt-2 text-sm font-semibold text-pine">Pin dropped ✓</p>
+                <p role="status" className="mt-2 text-sm font-semibold text-s_resolved">Pin dropped ✓</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="bphotos" className="block font-bold">Add a photo <span className="font-normal text-moss">(optional)</span></label>
+              <label htmlFor="bphotos" className="block font-bold text-pine">Add a photo <span className="font-normal text-moss">(optional)</span></label>
               <p className="mt-1 text-sm text-moss">Show the barrier — snap one with your phone or upload from your device. Location data is stripped automatically.</p>
-              <label htmlFor="bphotos" className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-moss/50 bg-paper px-5 py-3 font-semibold text-fern hover:border-fern">
+              <label htmlFor="bphotos" className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-xl border-2 border-dashed border-moss/40 bg-mist/50 px-5 py-3 font-semibold text-fern transition-colors hover:border-fern hover:bg-fern/5">
                 + Add photos
                 <input id="bphotos" ref={fileInputRef} type="file" accept="image/*" multiple
                   className="sr-only" onChange={(e) => addPhotos(e.target.files)} />
@@ -352,33 +389,35 @@ export default function OnePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="bname" className="block font-bold">Your name <span className="font-normal text-moss">(optional, never shown)</span></label>
+                <label htmlFor="bname" className="block font-bold text-pine">Your name <span className="font-normal text-moss">(optional, never shown)</span></label>
                 <input id="bname" value={name} onChange={(e) => setName(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+                  className="field mt-2" />
               </div>
               <div>
-                <label htmlFor="bemail" className="block font-bold">Your email <span className="font-normal text-moss">(optional, never shown)</span></label>
+                <label htmlFor="bemail" className="block font-bold text-pine">Your email <span className="font-normal text-moss">(optional, never shown)</span></label>
                 <input id="bemail" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="mt-2 w-full rounded-lg border border-moss/50 bg-paper px-4 py-3" />
+                  className="field mt-2" />
               </div>
             </div>
             <div aria-hidden="true" className="absolute left-[-9999px]">
               <label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} /></label>
             </div>
-            {err && <p role="alert" className="rounded-lg bg-s_documented/10 p-3 font-semibold text-s_documented">{err}</p>}
-            <button type="button" disabled={sending} onClick={submit}
-              className="rounded-lg bg-fern px-6 py-3 font-semibold text-white hover:bg-pine disabled:opacity-60">
-              {sending ? "Sharing…" : "Share it"}
-            </button>
-            <p className="text-base text-pine sm:text-lg">
-              Want to send a letter about it too? <Link href="/report" className="font-semibold text-fern underline underline-offset-4">We&rsquo;ll help you write one.</Link>
-            </p>
+            {err && <p role="alert" className="rounded-xl border border-s_documented/20 bg-s_documented/10 p-3 font-semibold text-s_documented">{err}</p>}
+            <div className="flex flex-wrap items-center gap-4 pt-1">
+              <button type="button" disabled={sending} onClick={submit}
+                className="btn btn-primary">
+                {sending ? "Sharing…" : "Share it"}
+              </button>
+              <p className="text-base text-pine">
+                Want to send a letter too? <Link href="/report" className="font-semibold text-fern underline underline-offset-4 hover:text-pine">We&rsquo;ll help you write one.</Link>
+              </p>
+            </div>
           </div>
         </section>
 
         {/* THE BOARD */}
-        <section aria-labelledby="board-h" className="mt-14">
-          <h2 id="board-h" className="font-display text-2xl font-semibold text-pine">What the community has noticed</h2>
+        <section aria-labelledby="board-h" className="mt-16">
+          <h2 id="board-h" className="font-display text-2xl font-semibold text-pine sm:text-3xl">What the community has noticed</h2>
           {reports === null ? (
             <p role="status" className="mt-4 text-moss">Loading…</p>
           ) : reports.length === 0 ? (
@@ -386,7 +425,7 @@ export default function OnePage() {
           ) : (
             <ul className="mt-6 space-y-4">
               {reports.map((r) => (
-                <li key={r.id} id={`report-${r.id}`} tabIndex={-1} className="rounded-xl border border-moss/30 bg-paper p-5 scroll-mt-4 focus:outline-3 focus:outline-fern">
+                <li key={r.id} id={`report-${r.id}`} tabIndex={-1} className="card p-5 scroll-mt-20 transition-shadow hover:shadow-md focus:outline-3 focus:outline-fern sm:p-6">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                     {r.barrier_type && (
                       <span className="rounded-full bg-fern/15 px-3 py-0.5 text-sm font-bold text-pine">
@@ -398,15 +437,15 @@ export default function OnePage() {
                       {new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </span>
                   </div>
-                  <p className="mt-3 max-w-prose whitespace-pre-wrap">{r.barrier_desc}</p>
-                  {r.place_desc && <p className="mt-2 text-sm text-moss">{r.place_desc}</p>}
+                  <p className="mt-3 max-w-prose whitespace-pre-wrap leading-relaxed">{r.barrier_desc}</p>
+                  {r.place_desc && <p className="mt-2 flex items-center gap-1.5 text-sm text-moss"><span aria-hidden="true">📍</span>{r.place_desc}</p>}
                   {r.photo_paths && r.photo_paths.length > 0 && (
                     <ul className="mt-3 flex flex-wrap gap-3">
                       {r.photo_paths.map((path, i) => (
                         <li key={i}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={reportPhotoUrl(supabase, path)} alt={`Photo of the reported barrier${r.place_desc ? ` at ${r.place_desc}` : ""}`}
-                            className="h-32 w-32 rounded-lg border border-moss/30 object-cover" />
+                            className="h-32 w-32 rounded-xl border border-moss/20 object-cover" />
                         </li>
                       ))}
                     </ul>
@@ -440,9 +479,10 @@ export default function OnePage() {
         </section>
 
         {/* PARTNER WITH US */}
-        <section aria-labelledby="partner-h" id="partner" className="mt-14 max-w-prose scroll-mt-6 rounded-2xl border border-moss/30 bg-paper p-6">
-          <h2 id="partner-h" className="font-display text-2xl font-semibold text-pine">Partner with us</h2>
-          <p className="mt-3">
+        <section aria-labelledby="partner-h" id="partner" className="relative mt-16 max-w-prose scroll-mt-20 overflow-hidden rounded-3xl border border-pine/15 bg-gradient-to-br from-pine to-fern p-7 text-white shadow-sm sm:p-9">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-48 w-48 rounded-full bg-kelly/25 blur-3xl" />
+          <h2 id="partner-h" className="relative font-display text-2xl font-semibold sm:text-3xl">Partner with us</h2>
+          <p className="relative mt-3 leading-relaxed text-white/90">
             Property managers, businesses, and county partners: this works best when
             we build it together from the start. Whether you&rsquo;d like to be
             recognized for what you already do well, weigh in on something you see
@@ -450,7 +490,7 @@ export default function OnePage() {
             report required.
           </p>
           <a href="mailto:debi@sparcsolutions.org?subject=Partnering%20on%20Accessibility%20in%20Real%20Time"
-            className="mt-4 inline-block rounded-lg bg-fern px-6 py-3 font-semibold text-white hover:bg-pine">
+            className="btn relative mt-5 bg-white text-pine shadow-sm hover:bg-kelly hover:text-white">
             Get in touch
           </a>
         </section>

@@ -3,8 +3,9 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fromPercent, RTC_BOX } from "@/lib/geo";
+import placesData from "@/data/places.json";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Map as MLMap, Marker as MLMarker } from "maplibre-gl";
+import type { Map as MLMap, Marker as MLMarker, Popup as MLPopup } from "maplibre-gl";
 
 /**
  * The Town Center map — a real interactive vector map (MapLibre GL + free
@@ -13,6 +14,9 @@ import type { Map as MLMap, Marker as MLMarker } from "maplibre-gl";
  *  - Clicking a street / building / spot starts a barrier report there
  *    (calls onPlacePick with the place name + real lat/lon). You can also just
  *    type the address or place name into the report form.
+ *  - With `snapToAddress`, hovering the map surfaces the nearest known street
+ *    address as a floating label you can click to report at that exact address
+ *    — not just a business name.
  *  - Every barrier is a red pin you can click: documented barriers open their
  *    paper trail; community reports jump to their entry on the board below.
  */
@@ -24,6 +28,56 @@ export type MapBarrier = {
 export type MapReport = { id: string; snippet: string; lat: number | null; lon: number | null };
 export type MapPlace = { name: string; addr: string | null; lat: number; lon: number };
 export type MapPick = { lat: number; lon: number };
+
+/** A known Reston Town Center address, enriched from src/data/places.json:
+ *  `street` is the numbered street address; `title` the business/place name. */
+type SnapPlace = { street: string | null; title: string | null; lat: number; lon: number };
+type RawPlace = { name: string; addr: string | null; lat: number; lon: number };
+
+const startsWithNumber = (s: string) => /^\s*\d/.test(s);
+
+/** Pre-computed address book for hover-snapping. Places whose `name` is itself
+ *  a numbered address (e.g. "11714 Sunset Hills Road") become the street; named
+ *  businesses keep their name as the title and any `addr` as the street. */
+const ADDRESSES: SnapPlace[] = (placesData as RawPlace[]).map((p) => ({
+  street: p.addr ?? (startsWithNumber(p.name) ? p.name : null),
+  title: startsWithNumber(p.name) && !p.addr ? null : p.name,
+  lat: p.lat,
+  lon: p.lon,
+}));
+
+/** How close (metres) the cursor must be to a known address to snap to it. */
+const SNAP_METERS = 55;
+
+/** Rough great-circle distance in metres (equirectangular — plenty at this scale). */
+function metersBetween(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6371000, toRad = Math.PI / 180;
+  const x = (bLon - aLon) * toRad * Math.cos(((aLat + bLat) / 2) * toRad);
+  const y = (bLat - aLat) * toRad;
+  return Math.sqrt(x * x + y * y) * R;
+}
+
+/** Nearest known address to a point, or null if nothing is within SNAP_METERS. */
+function nearestAddress(lat: number, lon: number): SnapPlace | null {
+  let best: SnapPlace | null = null;
+  let bestD = SNAP_METERS;
+  for (const a of ADDRESSES) {
+    const d = metersBetween(lat, lon, a.lat, a.lon);
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  return best;
+}
+
+/** Turn a snapped address into the {name, addr} the report form expects. */
+function placeFromAddress(a: SnapPlace): MapPlace {
+  const street = a.street ?? a.title ?? "Selected spot";
+  return {
+    name: a.title ?? street,
+    addr: a.title ? a.street : null,
+    lat: a.lat,
+    lon: a.lon,
+  };
+}
 
 const STATUS_TEXT: Record<string, string> = {
   documented: "Documented", contacted: "Letter sent",
@@ -65,7 +119,7 @@ function lngLatOf(o: { lat: number | null; lon: number | null; x?: number | null
   return null;
 }
 
-export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hint }: {
+export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hint, snapToAddress = false }: {
   barriers: MapBarrier[]; reports?: MapReport[];
   onPlacePick?: (p: MapPlace) => void;
   /** When set, drops a distinct "you picked this" pin (used by the console
@@ -73,15 +127,19 @@ export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hin
   picked?: MapPick | null;
   /** Optional override for the instructional line above the map. */
   hint?: string;
+  /** Public report flow only: hover reveals the nearest numbered street
+   *  address, and clicking snaps the report to that exact address. */
+  snapToAddress?: boolean;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
   const markersRef = useRef<MLMarker[]>([]);
+  const hoverRef = useRef<{ popup: MLPopup | null; key: string | null }>({ popup: null, key: null });
   const readyRef = useRef(false);
   // keep latest props/handlers reachable from map events without rebuilding the map
-  const dataRef = useRef({ barriers, reports, onPlacePick, picked });
-  dataRef.current = { barriers, reports, onPlacePick, picked };
+  const dataRef = useRef({ barriers, reports, onPlacePick, picked, snapToAddress });
+  dataRef.current = { barriers, reports, onPlacePick, picked, snapToAddress };
 
   // build the map once
   useEffect(() => {
@@ -110,19 +168,63 @@ export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hin
         drawMarkers(maplibregl, map);
       });
 
-      // click a street / building / spot -> start a report there
+      // click a street / building / spot -> start a report there. When snapping
+      // is on, prefer the nearest known numbered address over the tile name.
       map.on("click", (e) => {
+        if (!dataRef.current.onPlacePick) return;
+        if (dataRef.current.snapToAddress) {
+          const near = nearestAddress(e.lngLat.lat, e.lngLat.lng);
+          if (near) { dataRef.current.onPlacePick(placeFromAddress(near)); return; }
+        }
         const { name, addr } = describe(map, e.point);
-        dataRef.current.onPlacePick?.({ name, addr, lat: e.lngLat.lat, lon: e.lngLat.lng });
+        dataRef.current.onPlacePick({ name, addr, lat: e.lngLat.lat, lon: e.lngLat.lng });
       });
+
       map.on("mousemove", (e) => {
+        const canvas = map.getCanvas();
+        if (dataRef.current.snapToAddress && dataRef.current.onPlacePick) {
+          const near = nearestAddress(e.lngLat.lat, e.lngLat.lng);
+          if (near) {
+            canvas.style.cursor = "pointer";
+            showAddressHint(maplibregl, map, near);
+            return;
+          }
+          hideAddressHint();
+          canvas.style.cursor = "crosshair";
+          return;
+        }
+        if (!dataRef.current.onPlacePick) { canvas.style.cursor = ""; return; }
         const hit = describe(map, e.point).name !== "Selected spot";
-        map.getCanvas().style.cursor = hit ? "pointer" : "crosshair";
+        canvas.style.cursor = hit ? "pointer" : "crosshair";
       });
+      map.on("mouseout", hideAddressHint);
     })();
+
+    // Floating "nearest address" label shown while hovering (snap mode).
+    function showAddressHint(maplibregl: typeof import("maplibre-gl"), map: MLMap, a: SnapPlace) {
+      const key = `${a.lat},${a.lon}`;
+      const hover = hoverRef.current;
+      if (hover.key === key && hover.popup?.isOpen()) return;
+      hover.key = key;
+      if (!hover.popup) {
+        hover.popup = new maplibregl.Popup({
+          closeButton: false, closeOnClick: false, offset: 18,
+          className: "art-addr-popup", maxWidth: "260px",
+        });
+      }
+      hover.popup.setDOMContent(addressHintNode(a)).setLngLat([a.lon, a.lat]);
+      if (!hover.popup.isOpen()) hover.popup.addTo(map);
+    }
+    function hideAddressHint() {
+      const hover = hoverRef.current;
+      if (hover.popup) hover.popup.remove();
+      hover.key = null;
+    }
 
     return () => {
       cancelled = true;
+      hoverRef.current.popup?.remove();
+      hoverRef.current = { popup: null, key: null };
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       mapRef.current?.remove();
@@ -191,6 +293,8 @@ export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hin
         <p className="text-base font-medium text-pine sm:text-lg">
           {hint
             ? hint
+            : snapToAddress && onPlacePick
+            ? <>Hover the map to reveal the nearest street address, then click it to report a barrier at that exact address — or type an address or place name in the form below. Red pins are existing barriers; click one to open it.</>
             : onPlacePick
             ? <>Tap any street, building, or spot to report a barrier there — or type the address or place name in the form below. Red pins are barriers; click one to open it.</>
             : <>Red pins are barriers; click one to open it. Zoom in for more street names.</>}
@@ -201,11 +305,35 @@ export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hin
         ref={containerRef}
         role="application"
         aria-label="Interactive map of Reston Town Center. Zoom and pan to explore; select a location to report an accessibility barrier. Documented barriers and community reports are marked."
-        className="mt-3 overflow-hidden rounded-xl border border-moss/30"
+        className="mt-3 overflow-hidden rounded-2xl border border-moss/25 shadow-sm ring-1 ring-black/5"
         style={{ height: "clamp(420px, 70vh, 720px)" }}
       />
     </section>
   );
+}
+
+/** The floating label shown on hover: a numbered street address you can click
+ *  to report there. Purely informational (pointer-events are disabled in CSS) —
+ *  the map click underneath does the snapping — so it never blocks the cursor. */
+function addressHintNode(a: SnapPlace): HTMLElement {
+  const street = a.street ?? a.title ?? "Selected spot";
+  const wrap = document.createElement("div");
+  wrap.className = "art-addr-card";
+  const pin =
+    `<svg class="art-addr-pin" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">` +
+    `<path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z"/></svg>`;
+  const title = a.title && a.title !== street
+    ? `<span class="art-addr-title">${escapeHtml(a.title)}</span>` : "";
+  wrap.innerHTML =
+    `<span class="art-addr-head">${pin}<span class="art-addr-street">${escapeHtml(street)}</span></span>` +
+    title +
+    `<span class="art-addr-cta">Click to report at this address</span>`;
+  return wrap;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 }
 
 /** best human name + address under a clicked point, from the vector tiles */

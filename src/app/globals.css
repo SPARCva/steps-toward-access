@@ -4,13 +4,29 @@
 
 :root {
   color-scheme: light;
+  /* SPARC palette, mirrored here so plain CSS (map popups, gradients) can reach it */
+  --pine: #002b50;
+  --fern: #00539b;
+  --kelly: #4cbb17;
+  --moss: #5a6b7a;
+  --mist: #f5f5f5;
+  --ink: #333333;
+}
+
+/* A soft, on-brand page wash — subtle depth without stealing focus from content */
+body {
+  background-color: var(--mist);
+  background-image:
+    radial-gradient(60rem 60rem at 100% -10%, rgba(0, 83, 155, 0.06), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 5%, rgba(76, 187, 23, 0.05), transparent 55%);
+  background-attachment: fixed;
 }
 
 /* Quality floor: visible focus everywhere, on-brand, >=3:1 against mist/paper */
 :focus-visible {
-  outline: 3px solid #00539B;
+  outline: 3px solid var(--fern);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 /* Respect users who opt out of motion */
@@ -28,11 +44,12 @@
   left: -9999px;
   top: 0;
   z-index: 100;
-  background: #20372b;
+  background: var(--pine);
   color: #fff;
   padding: 0.75rem 1.25rem;
-  border-radius: 0 0 8px 0;
+  border-radius: 0 0 10px 0;
   font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 43, 80, 0.35);
 }
 .skip-link:focus {
   left: 0;
@@ -53,4 +70,91 @@
   background: repeating-linear-gradient(
     to bottom, #5c7263 0 6px, transparent 6px 12px
   );
+}
+
+/* ---------------------------------------------------------------------------
+   Shared, on-brand building blocks. Kept small and composable so every page
+   reads as one system: consistent radius, spacing, shadow, and motion.
+--------------------------------------------------------------------------- */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-moss/15 bg-paper shadow-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3
+           font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply bg-fern text-white shadow-sm hover:bg-pine hover:shadow-md;
+  }
+  .btn-dark {
+    @apply bg-pine text-white shadow-sm hover:bg-fern hover:shadow-md;
+  }
+  .btn-outline {
+    @apply border-2 border-fern text-fern hover:bg-fern/10;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-moss/40 bg-paper px-4 py-3 text-ink
+           shadow-sm transition-colors placeholder:text-moss/70
+           hover:border-moss/70 focus:border-fern;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Map hover: the floating "nearest street address" label (snap-to-address).
+   pointer-events are disabled so the map click underneath still snaps.
+--------------------------------------------------------------------------- */
+.art-addr-popup {
+  pointer-events: none;
+}
+.art-addr-popup .maplibregl-popup-content {
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 43, 80, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 43, 80, 0.22);
+  overflow: hidden;
+}
+.art-addr-popup .maplibregl-popup-tip {
+  border-top-color: #fff;
+  border-bottom-color: #fff;
+}
+.art-addr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  font-family: var(--font-body), system-ui, sans-serif;
+  background: #fff;
+}
+.art-addr-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.art-addr-pin {
+  color: var(--fern);
+  flex: none;
+}
+.art-addr-street {
+  font-weight: 700;
+  color: var(--pine);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+.art-addr-title {
+  color: var(--moss);
+  font-size: 0.8rem;
+  padding-left: 22px;
+  line-height: 1.2;
+}
+.art-addr-cta {
+  margin-top: 3px;
+  color: var(--fern);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-left: 22px;
 }
