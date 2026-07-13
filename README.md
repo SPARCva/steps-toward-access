@@ -26,8 +26,10 @@ CI will fail PRs that introduce axe-core violations (Phase 4).
   interactive map; see Andrew O'Dell's 2026-06-23 email). Real mapping tech
   (Nominatim geocoding + optional MapLibre/OpenFreeMap confirm map) is used
   only in the visitor report tool.
-- **No server-side email sending** for visitor reports (mailto/copy only) and
-  no storage of visitor submissions — standing liability decisions.
+- **No server-side email sending** for visitor barrier reports (mailto/copy
+  only) and no storage of visitor submissions — standing liability decisions.
+  (The separate `/partner` outreach form *does* email SPARC via Resend; it
+  relays the message and stores nothing.)
 - Tables are namespaced `access_*` on the shared Supabase project.
 
 ## Local dev

@@ -482,10 +482,10 @@ export default function OnePage() {
             to weigh in on something you see here or team up on a change, we&rsquo;d like
             to hear from you. No barrier report required.
           </p>
-          <a href="mailto:debi@sparcsolutions.org?subject=Partnering%20on%20Accessibility%20in%20Real%20Time&body=Hi%20SPARC%2C%0A%0AI%27d%20like%20to%20talk%20about%20partnering%20on%20Accessibility%20in%20Real%20Time%20at%20Reston%20Town%20Center.%0A%0A"
+          <Link href="/partner"
             className="btn relative mt-5 bg-white text-pine shadow-sm hover:bg-kelly hover:text-white">
             Partner with us
-          </a>
+          </Link>
         </section>
       </main>
 
