@@ -23,6 +23,7 @@ export type MapBarrier = {
 };
 export type MapReport = { id: string; snippet: string; lat: number | null; lon: number | null };
 export type MapPlace = { name: string; addr: string | null; lat: number; lon: number };
+export type MapPick = { lat: number; lon: number };
 
 const STATUS_TEXT: Record<string, string> = {
   documented: "Documented", contacted: "Letter sent",
@@ -31,16 +32,17 @@ const STATUS_TEXT: Record<string, string> = {
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const RED = "#C62828";
+const FERN = "#00539B"; // SPARC royal blue — the console editor's placed pin
 
-/** A red teardrop pin element (anchored at its tip). */
-function pinElement(): HTMLButtonElement {
+/** A teardrop pin element (anchored at its tip). Red by default. */
+function pinElement(fill: string = RED): HTMLButtonElement {
   const el = document.createElement("button");
   el.type = "button";
   el.style.cssText = "background:none;border:0;padding:0;cursor:pointer;line-height:0;display:block";
   el.innerHTML =
     `<svg width="28" height="38" viewBox="0 0 28 38" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">` +
     `<path d="M14 1C7.4 1 2 6.3 2 12.9 2 21.5 14 37 14 37s12-15.5 12-24.1C26 6.3 20.6 1 14 1z" ` +
-    `fill="${RED}" stroke="#fff" stroke-width="2"/>` +
+    `fill="${fill}" stroke="#fff" stroke-width="2"/>` +
     `<circle cx="14" cy="13" r="4.5" fill="#fff"/></svg>`;
   return el;
 }
@@ -63,9 +65,14 @@ function lngLatOf(o: { lat: number | null; lon: number | null; x?: number | null
   return null;
 }
 
-export function RtcMap({ barriers, reports = [], onPlacePick }: {
+export function RtcMap({ barriers, reports = [], onPlacePick, picked = null, hint }: {
   barriers: MapBarrier[]; reports?: MapReport[];
   onPlacePick?: (p: MapPlace) => void;
+  /** When set, drops a distinct "you picked this" pin (used by the console
+   *  editor to place a barrier). Does not navigate on click. */
+  picked?: MapPick | null;
+  /** Optional override for the instructional line above the map. */
+  hint?: string;
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -73,8 +80,8 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
   const markersRef = useRef<MLMarker[]>([]);
   const readyRef = useRef(false);
   // keep latest props/handlers reachable from map events without rebuilding the map
-  const dataRef = useRef({ barriers, reports, onPlacePick });
-  dataRef.current = { barriers, reports, onPlacePick };
+  const dataRef = useRef({ barriers, reports, onPlacePick, picked });
+  dataRef.current = { barriers, reports, onPlacePick, picked };
 
   // build the map once
   useEffect(() => {
@@ -133,12 +140,19 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
       if (mapRef.current) drawMarkers(maplibregl, mapRef.current);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barriers, reports]);
+  }, [barriers, reports, picked]);
 
   function drawMarkers(maplibregl: typeof import("maplibre-gl"), map: MLMap) {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-    const { barriers, reports } = dataRef.current;
+    const { barriers, reports, picked } = dataRef.current;
+
+    // the "you picked this spot" pin (console editor) — fern, non-navigating
+    if (picked) {
+      const el = pinElement(FERN);
+      el.setAttribute("aria-label", "The barrier's pin. Click elsewhere on the map to move it.");
+      markersRef.current.push(new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([picked.lon, picked.lat]).addTo(map));
+    }
 
     // community reports — small red dots that jump to their board entry
     reports.forEach((r) => {
@@ -175,7 +189,9 @@ export function RtcMap({ barriers, reports = [], onPlacePick }: {
     <section aria-label="Map of Reston Town Center barriers" className="mt-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-base font-medium text-pine sm:text-lg">
-          {onPlacePick
+          {hint
+            ? hint
+            : onPlacePick
             ? <>Tap any street, building, or spot to report a barrier there — or type the address or place name in the form below. Red pins are barriers; click one to open it.</>
             : <>Red pins are barriers; click one to open it. Zoom in for more street names.</>}
         </p>

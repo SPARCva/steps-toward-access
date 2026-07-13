@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useStaff } from "@/lib/auth";
 import { uploadPhoto } from "@/lib/images";
-import { fromPercent, toPercent } from "@/lib/geo";
 import { StatusBadge } from "@/components/StatusBadge";
+import { RtcMap } from "@/components/RtcMap";
 
 type Party = { id: string; name: string };
 type Photo = { id?: string; src: string; alt: string; caption: string | null; sort: number; uploading?: boolean };
@@ -45,7 +45,6 @@ function RecordInner() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -76,19 +75,9 @@ function RecordInner() {
     return <Shell><p><Link href="/console" className="font-semibold text-fern underline underline-offset-4">Sign in</Link> to edit the record.</p></Shell>;
 
   const isEditor = staff.role !== "contributor";
-  const pin = lat && lon ? toPercent(parseFloat(lat), parseFloat(lon)) : null;
+  const pickedPin = lat && lon && Number.isFinite(parseFloat(lat)) && Number.isFinite(parseFloat(lon))
+    ? { lat: parseFloat(lat), lon: parseFloat(lon) } : null;
   const photosOk = photos.every((p) => p.alt.trim() !== "" && !p.uploading);
-
-  function placePin(e: React.MouseEvent) {
-    const el = mapRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const { lat: la, lon: lo } = fromPercent(
-      ((e.clientX - r.left) / r.width) * 100,
-      ((e.clientY - r.top) / r.height) * 100
-    );
-    setLat(la.toFixed(6)); setLon(lo.toFixed(6));
-  }
 
   async function save(next?: { published?: boolean }) {
     setBusy(true); setErr(null); setMsg(null);
@@ -251,15 +240,12 @@ function RecordInner() {
 
           <fieldset>
             <legend className="font-bold">Pin on the map</legend>
-            <p className="mt-1 text-sm text-moss">Click the map to place it, or type coordinates.</p>
-            <div ref={mapRef} onClick={placePin} className="relative mt-3 cursor-crosshair overflow-hidden rounded-xl border border-moss/30">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/ART/rtc-basemap.svg" alt="" className="block w-full select-none" draggable={false} />
-              {pin && pin.x >= 0 && pin.x <= 100 && pin.y >= 0 && pin.y <= 100 && (
-                <span aria-hidden="true" style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-                  className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pine ring-4 ring-fern" />
-              )}
-            </div>
+            <RtcMap
+              barriers={[]}
+              picked={pickedPin}
+              hint="Tap any street, building, or spot to drop this barrier's pin — the blue pin marks the spot. You can also type coordinates below."
+              onPlacePick={(pl) => { setLat(pl.lat.toFixed(6)); setLon(pl.lon.toFixed(6)); }}
+            />
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="lat" className="block text-sm font-bold">Latitude</label>
@@ -272,6 +258,12 @@ function RecordInner() {
                   className="mt-1 w-full rounded-lg border border-moss/50 px-3 py-2 font-mono text-sm" />
               </div>
             </div>
+            {pickedPin && (
+              <button type="button" onClick={() => { setLat(""); setLon(""); }}
+                className="mt-2 text-sm font-semibold text-moss underline underline-offset-4 hover:text-s_documented">
+                Clear pin
+              </button>
+            )}
           </fieldset>
         </div>
 
