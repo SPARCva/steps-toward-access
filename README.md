@@ -28,8 +28,9 @@ CI will fail PRs that introduce axe-core violations (Phase 4).
   only in the visitor report tool.
 - **No server-side email sending** for visitor barrier reports (mailto/copy
   only) and no storage of visitor submissions — standing liability decisions.
-  (The separate `/partner` outreach form *does* email SPARC via Resend; it
-  relays the message and stores nothing.)
+  (The separate `/partner` outreach form *does* email SPARC — via Web3Forms
+  when there's no DNS access, or Resend when the domain is verified; either
+  way it relays the message and stores nothing. See `.env.example`.)
 - Tables are namespaced `access_*` on the shared Supabase project.
 
 ## Local dev

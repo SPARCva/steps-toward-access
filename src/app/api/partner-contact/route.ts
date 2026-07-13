@@ -53,12 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "That's a bit long — please shorten it and try again." }, { status: 400, headers });
   }
 
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    // Not configured yet — tell the client so it can offer the mailto fallback.
-    return NextResponse.json({ error: "unconfigured" }, { status: 503, headers });
-  }
-
+  const subject = `Partner inquiry — ${name}${org ? ` (${org})` : ""}`;
   const text =
     `New partner inquiry from Accessibility in Real Time\n\n` +
     `Name:  ${name}\n` +
@@ -66,23 +61,50 @@ export async function POST(req: NextRequest) {
     (org ? `Organization: ${org}\n` : "") +
     `\nMessage:\n${message}\n`;
 
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: FROM,
-      to: [INBOX],
-      reply_to: email,
-      subject: `Partner inquiry — ${name}${org ? ` (${org})` : ""}`,
-      text,
-    }),
-  });
+  const web3Key = process.env.WEB3FORMS_ACCESS_KEY;
+  const resendKey = process.env.RESEND_API_KEY;
 
-  if (!r.ok) {
-    const detail = await r.text().catch(() => "");
-    console.error("partner-contact: Resend send failed", r.status, detail);
-    return NextResponse.json({ error: "Sending failed — please try again in a moment." }, { status: 502, headers });
+  // Web3Forms — the no-DNS path. Sends from Web3Forms' own verified domain to
+  // whatever address the access key is bound to (debi@), so nothing needs to
+  // be set up in DNS. The visitor's address rides along as Reply-To.
+  if (web3Key) {
+    const r = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        access_key: web3Key,
+        subject,
+        from_name: "Accessibility in Real Time",
+        name,
+        email,        // Web3Forms uses this as Reply-To
+        organization: org || undefined,
+        message: text,
+        botcheck: false,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || data.success === false) {
+      console.error("partner-contact: Web3Forms send failed", r.status, data);
+      return NextResponse.json({ error: "Sending failed — please try again in a moment." }, { status: 502, headers });
+    }
+    return NextResponse.json({ ok: true }, { headers });
   }
 
-  return NextResponse.json({ ok: true }, { headers });
+  // Resend — the alternative, for when the sending domain is verified in DNS.
+  if (resendKey) {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM, to: [INBOX], reply_to: email, subject, text }),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      console.error("partner-contact: Resend send failed", r.status, detail);
+      return NextResponse.json({ error: "Sending failed — please try again in a moment." }, { status: 502, headers });
+    }
+    return NextResponse.json({ ok: true }, { headers });
+  }
+
+  // Nothing configured yet — tell the client so it can offer the mailto fallback.
+  return NextResponse.json({ error: "unconfigured" }, { status: 503, headers });
 }
